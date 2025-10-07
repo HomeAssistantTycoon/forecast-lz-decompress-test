@@ -48,8 +48,13 @@ jobs:
               echo "Skipping $file (unsupported extension)"
               continue
             fi
-            echo "Decompressing $file → ${{ github.event.inputs.output_name }}/brres/"
-            wszst decompress "$file" -o "${{ github.event.inputs.output_name }}/brres/" || echo "Failed: $file"
+
+            # Generate output filename (strip last extension)
+            base=$(basename "$file")
+            output_file="${{ github.event.inputs.output_name }}/brres/${base%.*}"
+
+            echo "Decompressing $file → $output_file"
+            wszst decompress "$file" -o "$output_file" || echo "Failed: $file"
           done
           shopt -u nocaseglob
           echo "Final decompressed files:"
