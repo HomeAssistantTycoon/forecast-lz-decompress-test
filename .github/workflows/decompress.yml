@@ -1,16 +1,8 @@
-name: Decompress Nintendo Files
+name: Decompress Nintendo LZ7 Files
 
 on:
   workflow_dispatch:
     inputs:
-      mode:
-        description: "Compression type to decompress"
-        required: true
-        default: "lz7"
-        type: choice
-        options:
-          - lz7
-          - yaz0
       output_name:
         description: "Name for the output folder"
         required: false
@@ -34,41 +26,35 @@ jobs:
           chmod +x tools/szs-v2.42a-r8989-x86_64/bin/*
           sudo cp tools/szs-v2.42a-r8989-x86_64/bin/* /usr/local/bin/
           echo "Installed Wiimms tools successfully."
+          echo "Confirming installation..."
           which wszst
           wszst --version
 
-      # Step 3: Optional: Install Yaz0 decoder
-      - name: Install Yaz0 decoder
-        if: ${{ github.event.inputs.mode == 'yaz0' }}
-        run: |
-          echo "Installing Yaz0 decoder..."
-          git clone https://github.com/SwareJonge/yaz0dec.git
-          cd yaz0dec
-          gcc yaz0dec.c -o yaz0dec
-          sudo mv yaz0dec /usr/local/bin/
-          echo "Yaz0dec installed successfully."
-          which yaz0dec
+      # Step 3: Ensure output folder exists
+      - name: Create output folder
+        run: mkdir -p "${{ github.event.inputs.output_name }}"
 
-      # Step 4: Decompress files
-      - name: Run decompression
+      # Step 4: Decompress all .lz7 files in input/
+      - name: Decompress LZ7 files
         run: |
-          mkdir -p "${{ github.event.inputs.output_name }}"
-          echo "Input files:"
+          echo "Listing input folder contents:"
           ls -l input/
           echo "Starting decompression..."
-          for file in input/*; do
-            echo "Processing $file..."
-            if [ "${{ github.event.inputs.mode }}" == "yaz0" ]; then
-              yaz0dec "$file" "${{ github.event.inputs.output_name }}/$(basename "$file").bin" || echo "Failed: $file"
-            else
-              # Explicit output filename to avoid silent failures
-              wszst decompress "$file" -o "${{ github.event.inputs.output_name }}/$(basename "$file" .lz7)" || echo "Failed: $file"
+          for file in input/*.lz7; do
+            if [ ! -f "$file" ]; then
+              echo "No .lz7 files found, skipping."
+              continue
             fi
+            OUTPUT="${{ github.event.inputs.output_name }}/$(basename "$file" .lz7)"
+            echo "Decompressing $file → $OUTPUT"
+            wszst decompress "$file" -o "$OUTPUT"
+            echo "Output folder now contains:"
+            ls -l "${{ github.event.inputs.output_name }}/"
           done
           echo "Decompression completed."
 
-      # Step 5: Upload decompressed files
-      - name: Upload result
+      # Step 5: Upload decompressed files as artifacts
+      - name: Upload decompressed files
         uses: actions/upload-artifact@v4
         with:
           name: decompressed-files
