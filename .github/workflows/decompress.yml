@@ -29,7 +29,7 @@ jobs:
       - name: Create output folder
         run: mkdir -p "${{ github.event.inputs.output_name }}/files"
 
-      # Step 4: Decompress all .rso.lz7 files in input/
+      # Step 4: Decompress all .rso.lz7 files in input/ with flatten
       - name: Decompress RSO LZ7 files
         run: |
           echo "Listing input folder contents:"
@@ -41,10 +41,10 @@ jobs:
               continue
             fi
             echo "Decompressing $file → ${{ github.event.inputs.output_name }}/files/"
-            wit extract "$file" --dest "${{ github.event.inputs.output_name }}/files/" || echo "Failed to extract $file"
+            wit extract "$file" --dest "${{ github.event.inputs.output_name }}/files/" --flatten || echo "Failed to extract $file"
           done
-          echo "Output folder contents:"
-          ls -l "${{ github.event.inputs.output_name }}/files/"
+          echo "Final decompressed files:"
+          ls -R "${{ github.event.inputs.output_name }}/files/"
           echo "Decompression completed."
 
       # Step 5: Upload decompressed files as artifacts
