@@ -1,4 +1,4 @@
-name: Decompress BRRES LZ Files
+name: Decompress Nintendo BRRES LZ/LZ7 Files
 
 on:
   workflow_dispatch:
@@ -13,9 +13,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Install Wiimms SZS Tools
       - name: Install Wiimms SZS Tools
         run: |
           mkdir -p tools
@@ -25,26 +27,36 @@ jobs:
           echo "Installed Wiimms tools successfully"
           wszst --version
 
+      # Step 3: Create output folder
       - name: Create output folder
         run: mkdir -p "${{ github.event.inputs.output_name }}/brres"
 
-      - name: Decompress .brres.lz files
+      # Step 4: Decompress all .brres.lz / .brres.lz7 files (case-insensitive)
+      - name: Decompress BRRES compressed files
         run: |
+          shopt -s nocaseglob  # Make globbing case-insensitive
           echo "Listing input folder contents:"
           ls -l input/
           echo "Starting decompression..."
-          for file in input/*.brres.lz; do
+          for file in input/*.brres.*; do
             if [ ! -f "$file" ]; then
-              echo "No .brres.lz files found, skipping."
+              echo "No .brres compressed files found, skipping."
+              continue
+            fi
+            ext="${file##*.}"
+            if [[ "${ext,,}" != "lz" && "${ext,,}" != "lz7" ]]; then
+              echo "Skipping $file (unsupported extension)"
               continue
             fi
             echo "Decompressing $file → ${{ github.event.inputs.output_name }}/brres/"
             wszst decompress "$file" -o "${{ github.event.inputs.output_name }}/brres/" || echo "Failed: $file"
           done
+          shopt -u nocaseglob
           echo "Final decompressed files:"
           ls -l "${{ github.event.inputs.output_name }}/brres/"
           echo "Decompression completed."
 
+      # Step 5: Upload decompressed files as artifacts
       - name: Upload decompressed files
         uses: actions/upload-artifact@v4
         with:
