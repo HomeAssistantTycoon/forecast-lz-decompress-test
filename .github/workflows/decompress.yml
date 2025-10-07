@@ -1,4 +1,4 @@
-name: Decompress Nintendo RSO LZ7 Files
+name: Decompress BRRES LZ Files
 
 on:
   workflow_dispatch:
@@ -13,49 +13,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Download latest wit release (Linux x64)
-      - name: Install latest wit
+      - name: Install Wiimms SZS Tools
         run: |
-          echo "Downloading latest wit..."
-          wget -q https://github.com/WiiLink24/wit/releases/download/v2.11a/wit-v2.11a-linux.tar.xz -O /tmp/wit.tar.xz
-          mkdir -p /tmp/wit
-          tar -xf /tmp/wit.tar.xz -C /tmp/wit
-          chmod +x /tmp/wit/wit
-          sudo mv /tmp/wit/wit /usr/local/bin/
-          wit --version
+          mkdir -p tools
+          tar -xzf tools/szs-v2.42a-r8989-x86_64.tar.gz -C tools
+          chmod +x tools/szs-v2.42a-r8989-x86_64/bin/*
+          sudo cp tools/szs-v2.42a-r8989-x86_64/bin/* /usr/local/bin/
+          echo "Installed Wiimms tools successfully"
+          wszst --version
 
-      # Step 3: Create output folder
       - name: Create output folder
-        run: mkdir -p "${{ github.event.inputs.output_name }}/files"
+        run: mkdir -p "${{ github.event.inputs.output_name }}/brres"
 
-      # Step 4: Decompress all .rso.lz7 files in input/
-      - name: Decompress RSO LZ7 files
+      - name: Decompress .brres.lz files
         run: |
           echo "Listing input folder contents:"
           ls -l input/
           echo "Starting decompression..."
-          for file in input/*.rso.lz7; do
+          for file in input/*.brres.lz; do
             if [ ! -f "$file" ]; then
-              echo "No .rso.lz7 files found, skipping."
+              echo "No .brres.lz files found, skipping."
               continue
             fi
-            TEMP_FILE="${file%.lz7}"   # Strip .lz7 extension temporarily
-            cp "$file" "$TEMP_FILE"
-            echo "Decompressing $TEMP_FILE → ${{ github.event.inputs.output_name }}/files/"
-            /usr/local/bin/wit extract "$TEMP_FILE" --dest "${{ github.event.inputs.output_name }}/files/" || echo "Failed to extract $file"
-            rm "$TEMP_FILE"
+            echo "Decompressing $file → ${{ github.event.inputs.output_name }}/brres/"
+            wszst decompress "$file" -o "${{ github.event.inputs.output_name }}/brres/" || echo "Failed: $file"
           done
           echo "Final decompressed files:"
-          find "${{ github.event.inputs.output_name }}/files/" -type f
+          ls -l "${{ github.event.inputs.output_name }}/brres/"
           echo "Decompression completed."
 
-      # Step 5: Upload decompressed files as artifacts
       - name: Upload decompressed files
         uses: actions/upload-artifact@v4
         with:
-          name: decompressed-files
-          path: ${{ github.event.inputs.output_name }}/files/
+          name: decompressed-brres
+          path: ${{ github.event.inputs.output_name }}/brres/
