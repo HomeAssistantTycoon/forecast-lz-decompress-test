@@ -17,19 +17,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Download prebuilt wit binary
-      - name: Install wit prebuilt binary
+      # Step 2: Install build dependencies
+      - name: Install build dependencies
         run: |
-          wget -O wit https://wit.wiimm.de/linux/wit-latest-x64
-          chmod +x wit
-          sudo mv wit /usr/local/bin/
+          sudo apt update
+          sudo apt install -y build-essential cmake libjsoncpp-dev librhash-dev git
+
+      # Step 3: Clone and build wit from source
+      - name: Build wit from source
+        run: |
+          git clone https://github.com/Wiimm/wiimms-iso-tools.git /tmp/wiimms-iso-tools
+          cd /tmp/wiimms-iso-tools
+          make
+          sudo cp wit /usr/local/bin/
           wit --version
 
-      # Step 3: Create output folder
+      # Step 4: Create output folder
       - name: Create output folder
         run: mkdir -p "${{ github.event.inputs.output_name }}/brres"
 
-      # Step 4: Decompress all .brres.lz / .brres.lz7 files (case-insensitive)
+      # Step 5: Decompress all .brres.lz / .brres.lz7 files (case-insensitive)
       - name: Decompress BRRES files
         run: |
           shopt -s nocaseglob
@@ -49,7 +56,7 @@ jobs:
           echo "Final decompressed files:"
           ls -l "${{ github.event.inputs.output_name }}/brres/"
 
-      # Step 5: Upload decompressed files as artifacts
+      # Step 6: Upload decompressed files as artifacts
       - name: Upload decompressed files
         uses: actions/upload-artifact@v4
         with:
