@@ -24,19 +24,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Wiimms SZS Tools
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y wget make gcc git
+
+      - name: Install Wiimms SZS Tools (stable mirror)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget make gcc
-          wget https://szs.wiimm.de/download/szs-tools.tar.gz
-          tar -xzf szs-tools.tar.gz
-          cd szs-tools*
+          wget -O szs-tools.tar.gz https://szs.wiimm.de/download/szs-tools-v2.51a.tar.gz || echo "Download failed"
+          tar -xzf szs-tools.tar.gz || echo "tar failed"
+          cd szs-tools* || exit 1
           sudo make install
 
       - name: Install Yaz0dec (for Yaz0 files)
         if: ${{ github.event.inputs.mode == 'yaz0' }}
         run: |
-          sudo apt-get install -y git
           git clone https://github.com/SwareJonge/yaz0dec.git
           cd yaz0dec
           gcc yaz0dec.c -o yaz0dec
