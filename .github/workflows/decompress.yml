@@ -1,0 +1,61 @@
+name: Decompress Nintendo Files
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Compression type to decompress"
+        required: true
+        default: "lz"
+        type: choice
+        options:
+          - lz
+          - yaz0
+      output_name:
+        description: "Optional name for output folder"
+        required: false
+        default: "output"
+
+jobs:
+  decompress:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Wiimms SZS Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget make gcc
+          wget https://szs.wiimm.de/download/szs-tools.tar.gz
+          tar -xzf szs-tools.tar.gz
+          cd szs-tools*
+          sudo make install
+
+      - name: Install Yaz0dec (for Yaz0 files)
+        if: ${{ github.event.inputs.mode == 'yaz0' }}
+        run: |
+          sudo apt-get install -y git
+          git clone https://github.com/SwareJonge/yaz0dec.git
+          cd yaz0dec
+          gcc yaz0dec.c -o yaz0dec
+          sudo mv yaz0dec /usr/local/bin/
+
+      - name: Run decompression
+        run: |
+          mkdir -p "${{ github.event.inputs.output_name }}"
+          for file in input/*; do
+            echo "Processing $file"
+            if [ "${{ github.event.inputs.mode }}" == "yaz0" ]; then
+              yaz0dec "$file" "${{ github.event.inputs.output_name }}/$(basename "$file").bin" || echo "Failed: $file"
+            else
+              wszst decompress "$file" --dest "${{ github.event.inputs.output_name }}/" || echo "Failed: $file"
+            fi
+          done
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: decompressed-files
+          path: ${{ github.event.inputs.output_name }}/
