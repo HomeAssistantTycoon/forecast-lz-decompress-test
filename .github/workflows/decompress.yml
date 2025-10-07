@@ -1,38 +1,61 @@
-name: Decompress BRRES Workflow
-on: [push]
+name: Decompress BRRES LZ/LZ7 Files
+
+on:
+  workflow_dispatch:
+    inputs:
+      output_name:
+        description: "Name for the output folder"
+        required: false
+        default: "output"
 
 jobs:
   decompress:
     runs-on: ubuntu-latest
+
     steps:
+      # Step 1: Checkout repository
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Wiimm SZS Tools
+      # Step 2: Install build tools and wit
+      - name: Install wit from source
         run: |
-          # Download and extract the latest Wiimms SZS Tools (Linux x64)
-          wget -O szs-tools.tar.gz https://szs.wiimm.de/download/szs-v2.42a-r8989-x86_64.tar.gz
-          tar -xzf szs-tools.tar.gz
-          # Add the tool’s bin directory to PATH for subsequent steps
-          SZS_DIR=$(find . -maxdepth 1 -type d -name "szs-*" -print -quit)
-          echo "$PWD/$SZS_DIR/bin" >> $GITHUB_PATH
+          sudo apt update
+          sudo apt install -y git build-essential cmake
+          git clone https://github.com/WiiLink24/wit.git /tmp/wit
+          cd /tmp/wit
+          cmake .
+          make
+          sudo cp wit /usr/local/bin/
+          wit --version
 
-      - name: Decompress .brres.lz and .brres.lz7 files
+      # Step 3: Create output folder
+      - name: Create output folder
+        run: mkdir -p "${{ github.event.inputs.output_name }}/brres"
+
+      # Step 4: Decompress all .brres.lz / .brres.lz7 files (case-insensitive)
+      - name: Decompress BRRES files
         run: |
-          # Enable recursive globbing and case-insensitive matching
-          shopt -s globstar nocaseglob
-          for file in **/*.brres.lz*; do
+          shopt -s nocaseglob
+          for file in input/*.brres.*; do
             [ -f "$file" ] || continue
-            # Compute output path by removing the last extension (e.g., .lz or .lz7)
-            out="${file%.*}"
-            mkdir -p "$(dirname "$out")"
-            # Decompress into the .brres file (output argument, not using -o)
-            wszst decompress "$file" "$out"
+            ext="${file##*.}"
+            if [[ "${ext,,}" != "lz" && "${ext,,}" != "lz7" ]]; then
+              echo "Skipping $file (unsupported extension)"
+              continue
+            fi
+            base=$(basename "$file")
+            output="${{ github.event.inputs.output_name }}/brres/${base%.*}"
+            mkdir -p "$(dirname "$output")"
+            echo "Decompressing $file → $output"
+            wit lzdecompress "$file" "$output" || echo "Failed: $file"
           done
+          echo "Final decompressed files:"
+          ls -l "${{ github.event.inputs.output_name }}/brres/"
 
-      - name: Upload decompressed .brres files
+      # Step 5: Upload decompressed files as artifacts
+      - name: Upload decompressed files
         uses: actions/upload-artifact@v4
         with:
           name: decompressed-brres
-          path: |
-            **/*.brres
+          path: ${{ github.event.inputs.output_name }}/brres/
