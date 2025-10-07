@@ -1,4 +1,4 @@
-name: Decompress Nintendo LZ7 Files
+name: Decompress Nintendo RSO LZ7 Files
 
 on:
   workflow_dispatch:
@@ -17,35 +17,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Install Wiimms SZS Tools
-      - name: Install Wiimms SZS Tools
+      # Step 2: Install wit (Wiimms ISO Tools)
+      - name: Install wit
         run: |
-          echo "Extracting Wiimms SZS Tools..."
-          mkdir -p tools
-          tar -xzf tools/szs-v2.42a-r8989-x86_64.tar.gz -C tools
-          chmod +x tools/szs-v2.42a-r8989-x86_64/bin/*
-          sudo cp tools/szs-v2.42a-r8989-x86_64/bin/* /usr/local/bin/
-          echo "Installed Wiimms tools successfully."
-          which wszst
-          wszst --version
+          sudo apt update
+          sudo apt install -y wit
+          echo "Wit installed successfully"
+          wit --version
 
       # Step 3: Ensure output folder exists
       - name: Create output folder
         run: mkdir -p "${{ github.event.inputs.output_name }}/files"
 
-      # Step 4: Decompress all .lz7 files in input/
-      - name: Decompress LZ7 files
+      # Step 4: Decompress all .rso.lz7 files in input/
+      - name: Decompress RSO LZ7 files
         run: |
           echo "Listing input folder contents:"
           ls -l input/
           echo "Starting decompression..."
-          for file in input/*.lz7; do
+          for file in input/*.rso.lz7; do
             if [ ! -f "$file" ]; then
-              echo "No .lz7 files found, skipping."
+              echo "No .rso.lz7 files found, skipping."
               continue
             fi
             echo "Decompressing $file → ${{ github.event.inputs.output_name }}/files/"
-            wszst decompress "$file" -o "${{ github.event.inputs.output_name }}/files/"
+            wit extract "$file" --dest "${{ github.event.inputs.output_name }}/files/" || echo "Failed to extract $file"
           done
           echo "Output folder contents:"
           ls -l "${{ github.event.inputs.output_name }}/files/"
