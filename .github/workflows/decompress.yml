@@ -12,7 +12,7 @@ on:
           - lz
           - yaz0
       output_name:
-        description: "Optional name for output folder"
+        description: "Name for the output folder"
         required: false
         default: "output"
 
@@ -24,36 +24,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Wiimms SZS Tools (with forced User-Agent)
+      - name: Install Wiimms SZS Tools (from repo)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget make gcc
-          echo "Downloading Wiimms SZS Tools..."
-          wget --user-agent="Mozilla/5.0" -O szs-tools.tar.gz https://download.wiimm.de/wiimm/wiimms-szs-tools/releases/szs-tools-v2.51a.tar.gz || (echo "Primary download failed"; exit 1)
-          echo "Download complete. Extracting..."
-          tar -xzf szs-tools.tar.gz || (echo "Extraction failed"; exit 1)
-          cd szs-tools* || (echo "Directory not found"; exit 1)
-          sudo make install || (echo "Build failed"; exit 1)
+          echo "Extracting Wiimms SZS Tools..."
+          tar -xzf tools/szs-v2.42a-r8989-x86_64.tar.gz
+          cd szs-v2.42a-r8989-x86_64
+          echo "Installing Wiimms binaries..."
+          sudo cp bin/* /usr/local/bin/
+          echo "Installed Wiimms tools successfully."
 
       - name: Install Yaz0dec (for Yaz0 files)
         if: ${{ github.event.inputs.mode == 'yaz0' }}
         run: |
+          echo "Installing Yaz0 decoder..."
           git clone https://github.com/SwareJonge/yaz0dec.git
           cd yaz0dec
           gcc yaz0dec.c -o yaz0dec
           sudo mv yaz0dec /usr/local/bin/
+          echo "Yaz0dec installed successfully."
 
       - name: Run decompression
         run: |
           mkdir -p "${{ github.event.inputs.output_name }}"
+          echo "Starting decompression..."
           for file in input/*; do
-            echo "Processing $file"
+            echo "Processing $file..."
             if [ "${{ github.event.inputs.mode }}" == "yaz0" ]; then
               yaz0dec "$file" "${{ github.event.inputs.output_name }}/$(basename "$file").bin" || echo "Failed: $file"
             else
               wszst decompress "$file" --dest "${{ github.event.inputs.output_name }}/" || echo "Failed: $file"
             fi
           done
+          echo "Decompression completed."
 
       - name: Upload result
         uses: actions/upload-artifact@v4
