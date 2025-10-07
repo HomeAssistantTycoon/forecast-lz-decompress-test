@@ -6,10 +6,10 @@ on:
       mode:
         description: "Compression type to decompress"
         required: true
-        default: "lz"
+        default: "lz7"
         type: choice
         options:
-          - lz
+          - lz7
           - yaz0
       output_name:
         description: "Name for the output folder"
@@ -21,19 +21,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Wiimms SZS Tools (from repo)
+      # Step 2: Install Wiimms SZS Tools
+      - name: Install Wiimms SZS Tools
         run: |
           echo "Extracting Wiimms SZS Tools..."
-          tar -xzf tools/szs-v2.42a-r8989-x86_64.tar.gz
-          cd szs-v2.42a-r8989-x86_64
-          echo "Installing Wiimms binaries..."
-          sudo cp bin/* /usr/local/bin/
+          mkdir -p tools
+          tar -xzf tools/szs-v2.42a-r8989-x86_64.tar.gz -C tools
+          chmod +x tools/szs-v2.42a-r8989-x86_64/bin/*
+          sudo cp tools/szs-v2.42a-r8989-x86_64/bin/* /usr/local/bin/
           echo "Installed Wiimms tools successfully."
+          which wszst
+          wszst --version
 
-      - name: Install Yaz0dec (for Yaz0 files)
+      # Step 3: Optional: Install Yaz0 decoder
+      - name: Install Yaz0 decoder
         if: ${{ github.event.inputs.mode == 'yaz0' }}
         run: |
           echo "Installing Yaz0 decoder..."
@@ -42,21 +47,27 @@ jobs:
           gcc yaz0dec.c -o yaz0dec
           sudo mv yaz0dec /usr/local/bin/
           echo "Yaz0dec installed successfully."
+          which yaz0dec
 
+      # Step 4: Decompress files
       - name: Run decompression
         run: |
           mkdir -p "${{ github.event.inputs.output_name }}"
+          echo "Input files:"
+          ls -l input/
           echo "Starting decompression..."
           for file in input/*; do
             echo "Processing $file..."
             if [ "${{ github.event.inputs.mode }}" == "yaz0" ]; then
               yaz0dec "$file" "${{ github.event.inputs.output_name }}/$(basename "$file").bin" || echo "Failed: $file"
             else
-              wszst decompress "$file" --dest "${{ github.event.inputs.output_name }}/" || echo "Failed: $file"
+              # Explicit output filename to avoid silent failures
+              wszst decompress "$file" -o "${{ github.event.inputs.output_name }}/$(basename "$file" .lz7)" || echo "Failed: $file"
             fi
           done
           echo "Decompression completed."
 
+      # Step 5: Upload decompressed files
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
