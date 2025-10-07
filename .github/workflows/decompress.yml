@@ -17,15 +17,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Install wit (Wiimms ISO Tools)
-      - name: Install wit
+      # Step 2: Download latest wit release (Linux x64)
+      - name: Install latest wit
         run: |
-          sudo apt update
-          sudo apt install -y wit
-          echo "Wit installed successfully"
+          echo "Downloading latest wit..."
+          wget -q https://github.com/WiiLink24/wit/releases/download/v2.11a/wit-v2.11a-linux.tar.xz -O /tmp/wit.tar.xz
+          mkdir -p /tmp/wit
+          tar -xf /tmp/wit.tar.xz -C /tmp/wit
+          chmod +x /tmp/wit/wit
+          sudo mv /tmp/wit/wit /usr/local/bin/
           wit --version
 
-      # Step 3: Ensure output folder exists
+      # Step 3: Create output folder
       - name: Create output folder
         run: mkdir -p "${{ github.event.inputs.output_name }}/files"
 
@@ -40,18 +43,12 @@ jobs:
               echo "No .rso.lz7 files found, skipping."
               continue
             fi
-
-            # Strip .lz7 temporarily so wit recognizes the file as .rso
-            TEMP_FILE="${file%.lz7}"
+            TEMP_FILE="${file%.lz7}"   # Strip .lz7 extension temporarily
             cp "$file" "$TEMP_FILE"
-
             echo "Decompressing $TEMP_FILE → ${{ github.event.inputs.output_name }}/files/"
-            wit extract "$TEMP_FILE" --dest "${{ github.event.inputs.output_name }}/files/" --flatten --decompress || echo "Failed to extract $file"
-
-            # Clean up temporary file
+            /usr/local/bin/wit extract "$TEMP_FILE" --dest "${{ github.event.inputs.output_name }}/files/" || echo "Failed to extract $file"
             rm "$TEMP_FILE"
           done
-
           echo "Final decompressed files:"
           find "${{ github.event.inputs.output_name }}/files/" -type f
           echo "Decompression completed."
