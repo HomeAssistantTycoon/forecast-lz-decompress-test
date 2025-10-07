@@ -26,13 +26,12 @@ jobs:
           chmod +x tools/szs-v2.42a-r8989-x86_64/bin/*
           sudo cp tools/szs-v2.42a-r8989-x86_64/bin/* /usr/local/bin/
           echo "Installed Wiimms tools successfully."
-          echo "Confirming installation..."
           which wszst
           wszst --version
 
       # Step 3: Ensure output folder exists
       - name: Create output folder
-        run: mkdir -p "${{ github.event.inputs.output_name }}"
+        run: mkdir -p "${{ github.event.inputs.output_name }}/files"
 
       # Step 4: Decompress all .lz7 files in input/
       - name: Decompress LZ7 files
@@ -45,12 +44,11 @@ jobs:
               echo "No .lz7 files found, skipping."
               continue
             fi
-            OUTPUT="${{ github.event.inputs.output_name }}/$(basename "$file" .lz7)"
-            echo "Decompressing $file → $OUTPUT"
-            wszst decompress "$file" -o "$OUTPUT"
-            echo "Output folder now contains:"
-            ls -l "${{ github.event.inputs.output_name }}/"
+            echo "Decompressing $file → ${{ github.event.inputs.output_name }}/files/"
+            wszst decompress "$file" -o "${{ github.event.inputs.output_name }}/files/"
           done
+          echo "Output folder contents:"
+          ls -l "${{ github.event.inputs.output_name }}/files/"
           echo "Decompression completed."
 
       # Step 5: Upload decompressed files as artifacts
@@ -58,4 +56,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: decompressed-files
-          path: ${{ github.event.inputs.output_name }}/
+          path: ${{ github.event.inputs.output_name }}/files/
